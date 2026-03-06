@@ -1,0 +1,42 @@
+{
+  "name": "traoz-launcher",
+  "version": "1.0.0",
+  "description": "Traoz Launcher",
+  "main": "src/main/index.js",
+  "scripts": {
+    "start": "node_modules\\electron\\dist\\electron.exe .",
+    "build": "electron-builder --win --x64",
+    "dev": "electron . --dev"
+  },
+  "build": {
+    "appId": "com.traoz.launcher",
+    "productName": "Traoz Launcher",
+    "win": {
+      "target": "nsis",
+      "icon": "assets/icon.ico"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true
+    },
+    "files": [
+      "src/**/*",
+      "assets/**/*"
+    ],
+    "publish": {
+      "provider": "github",
+      "owner": "traoz",
+      "repo": "traoz-launcher"
+    }
+  },
+  "dependencies": {
+    "electron-updater": "^6.1.7",
+    "axios": "^1.6.7",
+    "extract-zip": "^2.0.1"
+  },
+  "devDependencies": {
+    "electron": "^25.9.8",
+    "electron-builder": "^24.9.1"
+  }
+}

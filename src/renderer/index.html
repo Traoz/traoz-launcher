@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self'">
+    <title>Traoz Launcher</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <!-- Title bar -->
+    <div class="titlebar">
+        <span class="titlebar-title">Traoz Launcher</span>
+        <div class="titlebar-controls">
+            <button class="tb-btn" id="btn-minimize">&#8211;</button>
+            <button class="tb-btn tb-close" id="btn-close">&#10005;</button>
+        </div>
+    </div>
+
+    <!-- Login screen -->
+    <div id="screen-login" class="screen">
+        <div class="logo-area">
+            <div class="logo-text">TRAOZ</div>
+            <div class="logo-sub">LAUNCHER</div>
+        </div>
+        <button class="btn-primary" id="btn-login">Login with Microsoft</button>
+        <div class="error-msg" id="login-error"></div>
+    </div>
+
+    <!-- Main screen -->
+    <div id="screen-main" class="screen hidden">
+        <div class="logo-area">
+            <div class="logo-text">TRAOZ</div>
+            <div class="logo-sub">LAUNCHER</div>
+        </div>
+        <div class="user-info">
+            <span id="user-avatar-placeholder" class="avatar"></span>
+            <span id="username-label">Player</span>
+            <button class="btn-link" id="btn-logout">Logout</button>
+        </div>
+        <button class="btn-primary btn-play" id="btn-play">PLAY</button>
+        <div class="status-log" id="status-log"></div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
