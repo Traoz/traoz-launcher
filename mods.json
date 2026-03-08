@@ -1,0 +1,8 @@
+{
+  "mods": [
+    { "file": "traozui.jar",     "sha256": "882d62986857c6a0474e46a512fb3e4ca86580ed57c848834359a5c6d888a24b" },
+    { "file": "betterwater.jar", "sha256": "a4d14b485db72fb1bfeefd6cfd22a52df1aa8899cc6c0a2022698c291155f436" },
+    { "file": "pitutils.jar",    "sha256": "46e458192d70fdafa39be234d6af6d21e5894f6ee9a517a4b59a293484aa5ba1" },
+    { "file": "optifine.jar",    "sha256": "2739760a70fca6ae5c7dc817bcc6283f18f55e38fa23778da7f387a6b724b2c4" }
+  ]
+}

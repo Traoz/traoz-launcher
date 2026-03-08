@@ -14,11 +14,13 @@ function getBaseDirs() {
 const FORGE_VERSION  = '1.8.9-forge1.8.9-11.15.1.2318-1.8.9';
 const VANILLA_MC_DIR = path.join(process.env.APPDATA, '.minecraft');
 
-const MODS = [
-    { url: 'https://github.com/traoz/traoz-launcher/releases/latest/download/traozui.jar',     file: 'traozui.jar'     },
-    { url: 'https://github.com/traoz/traoz-launcher/releases/latest/download/betterwater.jar', file: 'betterwater.jar' },
-    { url: 'https://github.com/traoz/traoz-launcher/releases/latest/download/pitutils.jar',    file: 'pitutils.jar'    },
-    { url: 'https://github.com/traoz/traoz-launcher/releases/latest/download/optifine.jar',    file: 'optifine.jar'    },
+const MODS_JSON_URL = 'https://github.com/traoz/traoz-launcher/releases/latest/download/mods.json';
+const MODS_BASE_URL = 'https://github.com/traoz/traoz-launcher/releases/latest/download/';
+const MODS_FALLBACK = [
+    { file: 'traozui.jar'     },
+    { file: 'betterwater.jar' },
+    { file: 'pitutils.jar'    },
+    { file: 'optifine.jar'    },
 ];
 
 // ── Java auto-detection ───────────────────────────────────────────────────────
@@ -104,20 +106,40 @@ async function download(url, dest, onProgress) {
 async function ensureMods(send, MODS_DIR) {
     fs.mkdirSync(MODS_DIR, { recursive: true });
     send('Checking mods...');
-    for (const mod of MODS) {
+
+    // Fetch mods.json from release to get expected hashes
+    let modList = MODS_FALLBACK;
+    try {
+        const res = await axios.get(MODS_JSON_URL, { maxRedirects: 10, timeout: 8000 });
+        if (res.data && res.data.mods) modList = res.data.mods;
+    } catch (e) {
+        send('Could not fetch mod manifest, using cached mods.');
+    }
+
+    for (const mod of modList) {
         const dest = path.join(MODS_DIR, mod.file);
-        const needsDownload = !fs.existsSync(dest) || isFileCorrupt(dest);
+        const url  = MODS_BASE_URL + mod.file;
+
+        // Check if file needs updating
+        let needsDownload = !fs.existsSync(dest) || isFileCorrupt(dest);
+        if (!needsDownload && mod.sha256) {
+            const localHash = fileHash(dest);
+            if (localHash !== mod.sha256) {
+                send(`${mod.file} outdated, updating...`);
+                needsDownload = true;
+            }
+        }
+
         if (!needsDownload) {
             send(`${mod.file} OK.`);
             continue;
         }
-        if (fs.existsSync(dest)) send(`${mod.file} appears corrupt, re-downloading...`);
+
         try {
-            await download(mod.url, dest, (pct) => {
+            await download(url, dest, (pct) => {
                 send(`__progress__:${mod.file}:${pct}`);
             });
             send(`__progress__:${mod.file}:100`);
-            // Verify after download
             if (isFileCorrupt(dest)) {
                 fs.unlinkSync(dest);
                 send(`${mod.file} download failed verification, skipping.`);
