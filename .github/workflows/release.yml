@@ -9,6 +9,9 @@ jobs:
   build:
     runs-on: windows-latest
 
+    permissions:
+      contents: write
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -20,6 +23,11 @@ jobs:
 
       - name: Install dependencies
         run: npm install
+
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh release create ${{ github.ref_name }} --title "${{ github.ref_name }}" --notes "Trident Client ${{ github.ref_name }}" --repo ${{ github.repository }}
 
       - name: Build & publish
         env:
