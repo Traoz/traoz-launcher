@@ -2,15 +2,26 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self'">
-    <title>Traoz Launcher</title>
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self'; img-src 'self' data:">
+    <title>Trident Client</title>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
+    <canvas id="bg-canvas"></canvas>
+    <img id="bg-image" class="hidden" alt="">
+
+    <!-- Update banner -->
+    <div id="update-banner" class="hidden">Update available — will install on next restart.</div>
+
     <!-- Title bar -->
     <div class="titlebar">
-        <span class="titlebar-title">Traoz Launcher</span>
+        <div class="titlebar-left">
+            <span class="titlebar-title" id="titlebar-title">Trident Client</span>
+            <span class="titlebar-clock" id="titlebar-clock"></span>
+        </div>
         <div class="titlebar-controls">
+            <button class="tb-btn" id="btn-theme" title="Toggle theme">&#9680;</button>
+            <button class="tb-btn" id="btn-settings">&#9881;</button>
             <button class="tb-btn" id="btn-minimize">&#8211;</button>
             <button class="tb-btn tb-close" id="btn-close">&#10005;</button>
         </div>
@@ -19,8 +30,9 @@
     <!-- Login screen -->
     <div id="screen-login" class="screen">
         <div class="logo-area">
-            <div class="logo-text">TRAOZ</div>
-            <div class="logo-sub">LAUNCHER</div>
+            <div class="logo-text">TRIDENT</div>
+            <div class="logo-sub">CLIENT</div>
+            <div class="startup-quote" id="startup-quote-login"></div>
         </div>
         <button class="btn-primary" id="btn-login">Login with Microsoft</button>
         <div class="error-msg" id="login-error"></div>
@@ -29,16 +41,184 @@
     <!-- Main screen -->
     <div id="screen-main" class="screen hidden">
         <div class="logo-area">
-            <div class="logo-text">TRAOZ</div>
-            <div class="logo-sub">LAUNCHER</div>
+            <div class="logo-text">TRIDENT</div>
+            <div class="logo-sub">CLIENT</div>
+            <div class="startup-quote" id="startup-quote-main"></div>
         </div>
-        <div class="user-info">
-            <span id="user-avatar-placeholder" class="avatar"></span>
-            <span id="username-label">Player</span>
-            <button class="btn-link" id="btn-logout">Logout</button>
+        <div class="account-switcher">
+            <div class="account-active" id="account-active">
+                <span class="avatar" id="active-avatar"></span>
+                <span id="username-label">Player</span>
+                <span class="account-arrow">▾</span>
+            </div>
+            <div class="account-dropdown hidden" id="account-dropdown">
+                <div id="account-list"></div>
+                <button class="account-add" id="btn-add-account">+ Add Account</button>
+            </div>
         </div>
-        <button class="btn-primary btn-play" id="btn-play">PLAY</button>
+        <div class="play-wrap">
+            <div class="play-pulse-ring" id="play-pulse-ring"></div>
+            <button class="btn-primary btn-play" id="btn-play">PLAY</button>
+        </div>
+        <div id="progress-bar" class="progress-bar hidden">
+            <div id="progress-label" class="progress-label"></div>
+            <div class="progress-track"><div id="progress-fill" class="progress-fill"></div></div>
+        </div>
         <div class="status-log" id="status-log"></div>
+        <div class="main-footer">
+            <span class="total-playtime" id="total-playtime"></span>
+            <span class="uptime-label" id="uptime-label"></span>
+        </div>
+        <div class="news-panel hidden" id="news-panel">
+            <div class="news-title" id="news-title"></div>
+            <div class="news-body" id="news-body"></div>
+        </div>
+    </div>
+
+    <!-- Settings screen -->
+    <div id="screen-settings" class="screen hidden">
+        <div class="settings-header">SETTINGS</div>
+        <div class="setting-row">
+            <div class="setting-label">RAM allocation: <span id="ram-value">2</span> GB</div>
+            <input type="range" id="ram-slider" class="ram-slider" min="1" max="8" step="1" value="2">
+        </div>
+        <div class="setting-row">
+            <div class="setting-label">Hide launcher when game launches</div>
+            <label class="toggle">
+                <input type="checkbox" id="toggle-close-on-launch">
+                <span class="toggle-track"></span>
+            </label>
+        </div>
+        <div class="setting-row">
+            <div class="setting-label">Minimize to tray on close</div>
+            <label class="toggle">
+                <input type="checkbox" id="toggle-tray-on-close">
+                <span class="toggle-track"></span>
+            </label>
+        </div>
+        <div class="setting-row">
+            <div class="setting-label">Discord Rich Presence</div>
+            <label class="toggle">
+                <input type="checkbox" id="toggle-discord">
+                <span class="toggle-track"></span>
+            </label>
+        </div>
+        <div class="setting-row">
+            <div class="setting-label">Accent color</div>
+            <input type="color" id="accent-color" class="accent-picker" value="#7733cc">
+        </div>
+        <div class="setting-row">
+            <div class="setting-label">G1GC garbage collector</div>
+            <label class="toggle">
+                <input type="checkbox" id="toggle-gc">
+                <span class="toggle-track"></span>
+            </label>
+        </div>
+        <div class="setting-row">
+            <div class="setting-label">Resolution (0 = default)</div>
+            <div class="res-inputs">
+                <input type="number" id="res-width"  class="setting-input res-input" placeholder="W" min="0" max="7680">
+                <span class="res-x">×</span>
+                <input type="number" id="res-height" class="setting-input res-input" placeholder="H" min="0" max="4320">
+            </div>
+        </div>
+        <div class="setting-row">
+            <div class="setting-label">Window opacity</div>
+            <div class="opacity-row">
+                <input type="range" id="opacity-slider" class="ram-slider" min="20" max="100" step="5" value="100">
+                <span id="opacity-value">100%</span>
+            </div>
+        </div>
+        <div class="setting-row">
+            <div class="setting-label">Compact mode (600×350)</div>
+            <label class="toggle">
+                <input type="checkbox" id="toggle-compact">
+                <span class="toggle-track"></span>
+            </label>
+        </div>
+        <div class="setting-row">
+            <div class="setting-label">Background image</div>
+            <div style="display:flex;gap:6px;">
+                <button class="btn-link" id="btn-pick-bg">Choose...</button>
+                <button class="btn-link" id="btn-clear-bg">Clear</button>
+            </div>
+        </div>
+        <div class="setting-row">
+            <div class="setting-label" id="java-path-label" style="font-size:10px;color:#444;">Detecting Java...</div>
+        </div>
+        <button class="btn-primary" id="btn-settings-back">Back</button>
+        <div class="settings-links-row">
+            <button class="btn-link" id="btn-instances">Manage Instances</button>
+            <button class="btn-link" id="btn-screenshots">Screenshots</button>
+            <button class="btn-link" id="btn-export-settings">Export Settings</button>
+            <button class="btn-link" id="btn-import-settings">Import Settings</button>
+        </div>
+    </div>
+
+    <!-- Instance manager screen -->
+    <div id="screen-instances" class="screen hidden">
+        <div class="settings-header">INSTANCES</div>
+        <div id="instance-list" class="instance-list"></div>
+        <button class="btn-primary" id="btn-instances-back">Back</button>
+    </div>
+
+    <!-- Crash log viewer screen -->
+    <div id="screen-crashlog" class="screen hidden">
+        <div class="settings-header">CRASH LOG</div>
+        <pre id="crashlog-content" class="crashlog-content">No crash log found.</pre>
+        <button class="btn-primary" id="btn-crashlog-back">Back</button>
+    </div>
+
+    <!-- Account picker modal -->
+    <div id="modal-launch" class="modal-overlay hidden">
+        <div class="modal">
+            <div class="modal-title">Choose an account</div>
+            <div id="modal-account-list"></div>
+            <button class="modal-cancel" id="btn-launch-cancel">Cancel</button>
+        </div>
+    </div>
+
+    <!-- Download overlay -->
+    <div id="download-overlay" class="download-overlay hidden">
+        <div class="download-box">
+            <div class="download-spinner"></div>
+            <div class="download-title">Updating mods...</div>
+            <div id="download-file" class="download-file"></div>
+            <div class="download-track"><div id="download-fill" class="download-fill"></div></div>
+            <div id="download-pct" class="download-pct">0%</div>
+        </div>
+    </div>
+
+    <!-- Screenshot gallery screen -->
+    <div id="screen-screenshots" class="screen hidden">
+        <div class="settings-header">SCREENSHOTS</div>
+        <div id="screenshot-grid" class="screenshot-grid"></div>
+        <button class="btn-primary" id="btn-screenshots-back">Back</button>
+    </div>
+
+    <!-- Server IP quick-join toast -->
+    <div id="server-toast" class="server-toast hidden">
+        <div class="server-toast-label">Server IP copied:</div>
+        <div class="server-toast-ip" id="server-toast-ip"></div>
+        <div class="server-toast-actions">
+            <button class="server-toast-join" id="btn-server-join">Launch &amp; Join</button>
+            <button class="server-toast-dismiss" id="btn-server-dismiss">Dismiss</button>
+        </div>
+    </div>
+
+    <!-- Keyboard shortcut overlay -->
+    <div id="shortcut-overlay" class="shortcut-overlay hidden">
+        <div class="shortcut-box">
+            <div class="shortcut-title">KEYBOARD SHORTCUTS</div>
+            <div class="shortcut-list">
+                <div class="shortcut-row"><span class="shortcut-key">Enter</span><span class="shortcut-desc">Launch game</span></div>
+                <div class="shortcut-row"><span class="shortcut-key">Esc</span><span class="shortcut-desc">Close modal / go back</span></div>
+                <div class="shortcut-row"><span class="shortcut-key">S</span><span class="shortcut-desc">Open settings</span></div>
+                <div class="shortcut-row"><span class="shortcut-key">T</span><span class="shortcut-desc">Toggle theme</span></div>
+                <div class="shortcut-row"><span class="shortcut-key">?</span><span class="shortcut-desc">Show this overlay</span></div>
+            </div>
+            <div class="shortcut-hint">Press <span class="shortcut-key">Esc</span> or <span class="shortcut-key">?</span> to close</div>
+        </div>
     </div>
 
     <script src="app.js"></script>

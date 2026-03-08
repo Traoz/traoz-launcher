@@ -1,35 +1,88 @@
 const { BrowserWindow } = require('electron');
 const path = require('path');
 const fs   = require('fs');
-const http = require('http');
 const { URL } = require('url');
 const axios = require('axios');
 
-// Microsoft Azure App — public client registered for Minecraft auth
-// Uses the same client ID as the official Minecraft launcher
 const CLIENT_ID    = '00000000402b5328';
 const REDIRECT_URI = 'https://login.live.com/oauth20_desktop.srf';
 const SCOPE        = 'XboxLive.signin offline_access';
 
-function profilePath() {
-    return path.join(require('electron').app.getPath('userData'), 'profile.json');
+function profilesPath() {
+    return path.join(require('electron').app.getPath('userData'), 'profiles.json');
+}
+
+function loadProfiles() {
+    try {
+        if (fs.existsSync(profilesPath())) {
+            return JSON.parse(fs.readFileSync(profilesPath(), 'utf8'));
+        }
+    } catch {}
+    // Migrate old single profile.json if it exists
+    const oldPath = path.join(require('electron').app.getPath('userData'), 'profile.json');
+    if (fs.existsSync(oldPath)) {
+        try {
+            const old = JSON.parse(fs.readFileSync(oldPath, 'utf8'));
+            const data = { profiles: [old], activeIndex: 0 };
+            fs.writeFileSync(profilesPath(), JSON.stringify(data, null, 2));
+            fs.unlinkSync(oldPath);
+            return data;
+        } catch {}
+    }
+    return { profiles: [], activeIndex: 0 };
+}
+
+function saveProfiles(data) {
+    fs.writeFileSync(profilesPath(), JSON.stringify(data, null, 2));
 }
 
 function getSavedProfile() {
-    try {
-        if (fs.existsSync(profilePath())) {
-            return JSON.parse(fs.readFileSync(profilePath(), 'utf8'));
-        }
-    } catch {}
-    return null;
+    const data = loadProfiles();
+    if (!data.profiles.length) return null;
+    // Auto-select most recently played account
+    let best = data.activeIndex;
+    let bestTime = 0;
+    data.profiles.forEach((p, i) => {
+        const t = p.lastPlayed ? new Date(p.lastPlayed).getTime() : 0;
+        if (t > bestTime) { bestTime = t; best = i; }
+    });
+    if (best !== data.activeIndex) {
+        data.activeIndex = best;
+        saveProfiles(data);
+    }
+    return data.profiles[data.activeIndex] || data.profiles[0];
 }
 
-function saveProfile(profile) {
-    fs.writeFileSync(profilePath(), JSON.stringify(profile, null, 2));
+function getAllProfiles() {
+    return loadProfiles();
+}
+
+function switchProfile(index) {
+    const data = loadProfiles();
+    if (index >= 0 && index < data.profiles.length) {
+        data.activeIndex = index;
+        saveProfiles(data);
+    }
+    return getSavedProfile();
+}
+
+function removeProfile(index) {
+    const data = loadProfiles();
+    data.profiles.splice(index, 1);
+    if (data.activeIndex >= data.profiles.length) {
+        data.activeIndex = Math.max(0, data.profiles.length - 1);
+    }
+    saveProfiles(data);
+    return loadProfiles();
 }
 
 function logout() {
-    if (fs.existsSync(profilePath())) fs.unlinkSync(profilePath());
+    const data = loadProfiles();
+    data.profiles.splice(data.activeIndex, 1);
+    if (data.activeIndex >= data.profiles.length) {
+        data.activeIndex = Math.max(0, data.profiles.length - 1);
+    }
+    saveProfiles(data);
 }
 
 async function login(parentWindow) {
@@ -38,35 +91,50 @@ async function login(parentWindow) {
         `?client_id=${CLIENT_ID}` +
         `&response_type=code` +
         `&redirect_uri=${encodeURIComponent(REDIRECT_URI)}` +
-        `&scope=${encodeURIComponent(SCOPE)}`;
+        `&scope=${encodeURIComponent(SCOPE)}` +
+        `&prompt=select_account`;
 
     const code = await openAuthWindow(parentWindow, authUrl);
     const profile = await exchangeCodeForProfile(code);
-    saveProfile(profile);
+
+    const data = loadProfiles();
+    // Replace if UUID already exists, otherwise add
+    const existing = data.profiles.findIndex(p => p.uuid === profile.uuid);
+    if (existing >= 0) {
+        data.profiles[existing] = profile;
+        data.activeIndex = existing;
+    } else {
+        data.profiles.push(profile);
+        data.activeIndex = data.profiles.length - 1;
+    }
+    saveProfiles(data);
     return profile;
 }
 
 function openAuthWindow(parent, url) {
     return new Promise((resolve, reject) => {
+        let settled = false;
+        const done = (fn, val) => { if (!settled) { settled = true; fn(val); } };
+
         const win = new BrowserWindow({
             width: 500,
             height: 650,
             parent,
             modal: true,
-            webPreferences: { nodeIntegration: false }
+            webPreferences: { nodeIntegration: false, contextIsolation: true }
         });
 
         win.loadURL(url);
 
         win.webContents.on('will-redirect', (event, redirectUrl) => {
-            handleRedirect(redirectUrl, win, resolve, reject);
+            handleRedirect(redirectUrl, win, (v) => done(resolve, v), (e) => done(reject, e));
         });
 
         win.webContents.on('did-navigate', (event, redirectUrl) => {
-            handleRedirect(redirectUrl, win, resolve, reject);
+            handleRedirect(redirectUrl, win, (v) => done(resolve, v), (e) => done(reject, e));
         });
 
-        win.on('closed', () => reject(new Error('Login window closed')));
+        win.on('closed', () => done(reject, new Error('Login window closed')));
     });
 }
 
@@ -82,7 +150,6 @@ function handleRedirect(url, win, resolve, reject) {
 }
 
 async function exchangeCodeForProfile(code) {
-    // 1. Exchange code for MS token
     const tokenRes = await axios.post(
         'https://login.live.com/oauth20_token.srf',
         new URLSearchParams({
@@ -95,39 +162,29 @@ async function exchangeCodeForProfile(code) {
     );
     const msToken = tokenRes.data.access_token;
 
-    // 2. Authenticate with Xbox Live
     const xblRes = await axios.post(
         'https://user.auth.xboxlive.com/user/authenticate',
         {
-            Properties: {
-                AuthMethod: 'RPS',
-                SiteName:   'user.auth.xboxlive.com',
-                RpsTicket:  `d=${msToken}`,
-            },
+            Properties: { AuthMethod: 'RPS', SiteName: 'user.auth.xboxlive.com', RpsTicket: `d=${msToken}` },
             RelyingParty: 'http://auth.xboxlive.com',
-            TokenType:    'JWT',
+            TokenType: 'JWT',
         },
         { headers: { 'Content-Type': 'application/json', Accept: 'application/json' } }
     );
     const xblToken = xblRes.data.Token;
     const userHash = xblRes.data.DisplayClaims.xui[0].uhs;
 
-    // 3. Get XSTS token
     const xstsRes = await axios.post(
         'https://xsts.auth.xboxlive.com/xsts/authorize',
         {
-            Properties: {
-                SandboxId:  'RETAIL',
-                UserTokens: [xblToken],
-            },
+            Properties: { SandboxId: 'RETAIL', UserTokens: [xblToken] },
             RelyingParty: 'rp://api.minecraftservices.com/',
-            TokenType:    'JWT',
+            TokenType: 'JWT',
         },
         { headers: { 'Content-Type': 'application/json', Accept: 'application/json' } }
     );
     const xstsToken = xstsRes.data.Token;
 
-    // 4. Authenticate with Minecraft
     const mcRes = await axios.post(
         'https://api.minecraftservices.com/authentication/login_with_xbox',
         { identityToken: `XBL3.0 x=${userHash};${xstsToken}` },
@@ -135,7 +192,6 @@ async function exchangeCodeForProfile(code) {
     );
     const mcToken = mcRes.data.access_token;
 
-    // 5. Get Minecraft profile (UUID + username)
     const profileRes = await axios.get(
         'https://api.minecraftservices.com/minecraft/profile',
         { headers: { Authorization: `Bearer ${mcToken}` } }
@@ -148,4 +204,33 @@ async function exchangeCodeForProfile(code) {
     };
 }
 
-module.exports = { login, getSavedProfile, saveProfile, logout };
+function recordLaunch(uuid, sessionMs) {
+    const data = loadProfiles();
+    const p = data.profiles.find(pr => pr.uuid === uuid);
+    if (p) {
+        p.launchCount  = (p.launchCount || 0) + 1;
+        p.lastPlayed   = new Date().toISOString();
+        if (sessionMs) p.playtimeMs = (p.playtimeMs || 0) + sessionMs;
+        saveProfiles(data);
+    }
+}
+
+// Returns array of { uuid, username, valid } for each profile
+async function validateTokens() {
+    const data = loadProfiles();
+    const results = [];
+    for (const p of data.profiles) {
+        let valid = false;
+        try {
+            const res = await axios.get(
+                'https://api.minecraftservices.com/minecraft/profile',
+                { headers: { Authorization: `Bearer ${p.accessToken}` }, timeout: 5000 }
+            );
+            valid = !!res.data.id;
+        } catch {}
+        results.push({ uuid: p.uuid, username: p.username, valid });
+    }
+    return results;
+}
+
+module.exports = { login, getSavedProfile, getAllProfiles, switchProfile, removeProfile, logout, recordLaunch, validateTokens };

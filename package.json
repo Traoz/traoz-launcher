@@ -1,7 +1,7 @@
 {
   "name": "traoz-launcher",
   "version": "1.0.0",
-  "description": "Traoz Launcher",
+  "description": "Trident Client",
   "main": "src/main/index.js",
   "scripts": {
     "start": "node_modules\\electron\\dist\\electron.exe .",
@@ -10,15 +10,18 @@
   },
   "build": {
     "appId": "com.traoz.launcher",
-    "productName": "Traoz Launcher",
+    "productName": "Trident Client",
     "win": {
-      "target": "nsis",
+      "target": [
+        { "target": "nsis", "arch": ["x64"] }
+      ],
       "icon": "assets/icon.ico"
     },
     "nsis": {
       "oneClick": false,
       "allowToChangeInstallationDirectory": true,
-      "createDesktopShortcut": true
+      "createDesktopShortcut": true,
+      "shortcutName": "Trident Client"
     },
     "files": [
       "src/**/*",
@@ -31,8 +34,9 @@
     }
   },
   "dependencies": {
-    "electron-updater": "^6.1.7",
     "axios": "^1.6.7",
+    "discord-rpc": "^4.0.1",
+    "electron-updater": "^6.1.7",
     "extract-zip": "^2.0.1"
   },
   "devDependencies": {
