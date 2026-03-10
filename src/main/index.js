@@ -1,6 +1,15 @@
 const { app, BrowserWindow, ipcMain, Tray, Menu, nativeImage, Notification } = require('electron');
 const path = require('path');
 const fs   = require('fs');
+
+// ── Single instance lock ──────────────────────────────────────────────────────
+const gotLock = app.requestSingleInstanceLock();
+if (!gotLock) { app.exit(0); }
+app.on('second-instance', () => {
+    if (mainWindow) { mainWindow.show(); mainWindow.focus(); }
+});
+
+app.setName('Trident Client');
 const axios = require('axios');
 const auth     = require('./auth');
 const minecraft = require('./minecraft');
@@ -78,6 +87,7 @@ function createWindow() {
         e.preventDefault();
         if (settings.get('trayOnClose') !== false) {
             mainWindow.hide();
+            mainWindow.setSkipTaskbar(true);
         } else {
             app.exit(0);
         }
@@ -97,9 +107,9 @@ function setupTray() {
 
     tray = new Tray(icon);
     updateTrayTooltip();
-    tray.on('click', () => { mainWindow.show(); mainWindow.focus(); });
+    tray.on('click', () => { mainWindow.setSkipTaskbar(false); mainWindow.show(); mainWindow.focus(); });
     tray.setContextMenu(Menu.buildFromTemplate([
-        { label: 'Open',  click: () => { mainWindow.show(); mainWindow.focus(); } },
+        { label: 'Open',  click: () => { mainWindow.setSkipTaskbar(false); mainWindow.show(); mainWindow.focus(); } },
         { type: 'separator' },
         { label: 'Quit',  click: () => { app.exit(0); } },
     ]));
@@ -135,6 +145,7 @@ ipcMain.on('window-minimize', () => mainWindow.minimize());
 ipcMain.on('window-close',    () => {
     if (settings.get('trayOnClose') !== false) {
         mainWindow.hide();
+        mainWindow.setSkipTaskbar(true);
     } else {
         app.exit(0);
     }

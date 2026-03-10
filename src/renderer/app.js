@@ -427,21 +427,21 @@ document.getElementById('btn-crashlog-back').addEventListener('click', () => {
 
 // ── Startup quotes ────────────────────────────────────────────────────────────
 const QUOTES = [
-    '"Mine or be mined."',
-    '"Blocks don\'t lie."',
-    '"Creepers gonna creep."',
-    '"The Nether awaits."',
-    '"Fortune favors the digger."',
-    '"Sleep is for the un-modded."',
-    '"Keep calm and craft on."',
-    '"One more block..."',
-    '"Diamonds are a miner\'s best friend."',
-    '"Why build when you can destroy? (Then rebuild.)"',
-    '"Endgame starts in the beginning."',
-    '"Your inventory is full. Your ambition is not."',
-    '"Always carry a torch."',
-    '"This is fine. The lava is fine."',
-    '"Pickaxes speak louder than words."',
+    '"Get to prestige 50 or go home."',
+    '"Mystic or bust."',
+    '"One care package can change everything."',
+    '"The Pit never sleeps."',
+    '"Fresh pants don\'t guarantee fresh skills."',
+    '"You can\'t spell \'Pit\' without \'it\'."',
+    '"Cash out before you die. Always."',
+    '"Gold is temporary. Prestige is forever."',
+    '"Every kill is a carry."',
+    '"You didn\'t get mystic\'d, you got outplayed."',
+    '"The grind never stops in the Pit."',
+    '"Renaming your sword doesn\'t make you better. (But it helps.)"',
+    '"KD doesn\'t matter. Gold does."',
+    '"Another day, another care package."',
+    '"Enchant first, ask questions later."',
 ];
 
 function setStartupQuote() {
